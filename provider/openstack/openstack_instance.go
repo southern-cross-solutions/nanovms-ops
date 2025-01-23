@@ -88,12 +88,14 @@ func getOpenStackInstances(provider *gophercloud.ProviderClient, opts servers.Li
 
 // CreateInstance - Creates instance on OpenStack.
 func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
+        fmt.Printf("Openstack CreateInstance ...\n")
 	client, err := o.getComputeClient()
 	if err != nil {
 		log.Error(err)
 	}
 
 	imageName := ctx.Config().CloudConfig.ImageName
+	fmt.Printf("Looking up image: %s\n", imageName)
 
 	imageID, err := o.findImage(imageName)
 	if err != nil {
@@ -101,7 +103,7 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 		return err
 	}
 
-	fmt.Printf("deploying imageID %s\n", imageID)
+	fmt.Printf("Deploying imageID %s\n", imageID)
 
 	flavorID, err := o.findFlavorByName(ctx.Config().CloudConfig.Flavor)
 
@@ -110,6 +112,21 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 	}
 
 	fmt.Printf("Deploying flavorID %s\n", flavorID)
+
+	var networks interface{}
+	targetConfig := ctx.Config().TargetConfig
+	fmt.Printf("DEBUG TargetConfig %s\n", targetConfig)
+	networkUUID := targetConfig["NetworkUUID"]
+	fmt.Printf("Deploying NetworkUUID %s\n", networkUUID)
+	fixedIP := targetConfig["FixedUUID"]
+	fmt.Printf("Deploying FixedIP %s\n", fixedIP)
+	if networkUUID != "" {
+	  fmt.Printf("DEBUG NetworkUUID is sets\n")
+	  networks = []servers.Network{{UUID: networkUUID, FixedIP: fixedIP}}
+	} else {
+	  networks = "auto"
+	}
+	fmt.Printf("DEBUG networks=%+v\n", networks)
 
 	instanceName := ctx.Config().RunConfig.InstanceName
 
@@ -120,7 +137,9 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 		FlavorRef: flavorID,
 		AdminPass: "TODO",
 		Metadata:  map[string]string{"CreatedBy": "ops", "Image": imageName},
+		Networks:  networks,
 	}
+	fmt.Printf("DEBUG: createOpts1=%+v\n", createOpts)
 
 	var volumeSize int
 	if ctx.Config().RunConfig.VolumeSizeInGb == 0 {
@@ -130,6 +149,7 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 	}
 
 	createOpts = o.addBootFromVolumeParams(createOpts, imageID, volumeSize)
+	fmt.Printf("DEBUG: createOpts2=%+v\n", createOpts)
 	server, err := servers.Create(client, createOpts).Extract()
 
 	if err != nil {
@@ -168,6 +188,8 @@ func (o *OpenStack) addBootFromVolumeParams(
 	imageID string,
 	rootDiskSizeGb int,
 ) *bootfromvolume.CreateOptsExt {
+	fmt.Printf("DEBUG: createOpts3=%+v\n", createOpts)
+        
 	blockDevice := bootfromvolume.BlockDevice{
 		BootIndex:           0,
 		DeleteOnTermination: true,
@@ -175,6 +197,7 @@ func (o *OpenStack) addBootFromVolumeParams(
 		SourceType:          bootfromvolume.SourceType("image"),
 		UUID:                imageID,
 	}
+	fmt.Printf("DEBUG: blockDevice=%+v\n", blockDevice)
 	if rootDiskSizeGb > 0 {
 		blockDevice.VolumeSize = rootDiskSizeGb
 	}
