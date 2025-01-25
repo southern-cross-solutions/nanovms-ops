@@ -21,6 +21,7 @@ import (
 )
 
 func getOpenStackInstances(provider *gophercloud.ProviderClient, opts servers.ListOpts) ([]lepton.CloudInstance, error) {
+        log.Debug("Openstack getOpenStackInstances ...")
 	cinstances := []lepton.CloudInstance{}
 
 	client, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{
@@ -83,19 +84,20 @@ func getOpenStackInstances(provider *gophercloud.ProviderClient, opts servers.Li
 		return true, nil
 	})
 
+        log.Debug(fmt.Sprintf("cinstances=%s", cinstances))
 	return cinstances, nil
 }
 
 // CreateInstance - Creates instance on OpenStack.
 func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
-        fmt.Printf("Openstack CreateInstance ...\n")
+        log.Debug("Openstack CreateInstance ...")
 	client, err := o.getComputeClient()
 	if err != nil {
 		log.Error(err)
 	}
 
 	imageName := ctx.Config().CloudConfig.ImageName
-	fmt.Printf("Looking up image: %s\n", imageName)
+	log.Info(fmt.Sprintf("Looking up image: %s", imageName))
 
 	imageID, err := o.findImage(imageName)
 	if err != nil {
@@ -103,7 +105,7 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 		return err
 	}
 
-	fmt.Printf("Deploying imageID %s\n", imageID)
+	log.Info(fmt.Sprintf("Deploying imageID: %s", imageID))
 
 	flavorID, err := o.findFlavorByName(ctx.Config().CloudConfig.Flavor)
 
@@ -111,22 +113,22 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 		log.Error(err)
 	}
 
-	fmt.Printf("Deploying flavorID %s\n", flavorID)
+	log.Info(fmt.Sprintf("Deploying flavorID: %s", flavorID))
 
 	var networks interface{}
 	targetConfig := ctx.Config().TargetConfig
-	fmt.Printf("DEBUG TargetConfig %s\n", targetConfig)
+	log.Debug(fmt.Sprintf("DEBUG TargetConfig: %s", targetConfig))
 	networkUUID := targetConfig["NetworkUUID"]
-	fmt.Printf("Deploying NetworkUUID %s\n", networkUUID)
+	log.Info(fmt.Sprintf("Deploying NetworkUUID: %s", networkUUID))
 	fixedIP := targetConfig["FixedUUID"]
-	fmt.Printf("Deploying FixedIP %s\n", fixedIP)
+	log.Info(fmt.Sprintf("Deploying FixedIP: %s", fixedIP))
 	if networkUUID != "" {
-	  fmt.Printf("DEBUG NetworkUUID is sets\n")
+	  log.Debug(fmt.Sprintf("DEBUG NetworkUUID is sets"))
 	  networks = []servers.Network{{UUID: networkUUID, FixedIP: fixedIP}}
 	} else {
 	  networks = "auto"
 	}
-	fmt.Printf("DEBUG networks=%+v\n", networks)
+	log.Debug(fmt.Sprintf("DEBUG networks=%+v", networks))
 
 	instanceName := ctx.Config().RunConfig.InstanceName
 
@@ -139,7 +141,7 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 		Metadata:  map[string]string{"CreatedBy": "ops", "Image": imageName},
 		Networks:  networks,
 	}
-	fmt.Printf("DEBUG: createOpts1=%+v\n", createOpts)
+	log.Debug(fmt.Sprintf("DEBUG: createOpts1=%+v", createOpts))
 
 	var volumeSize int
 	if ctx.Config().RunConfig.VolumeSizeInGb == 0 {
@@ -149,14 +151,14 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 	}
 
 	createOpts = o.addBootFromVolumeParams(createOpts, imageID, volumeSize)
-	fmt.Printf("DEBUG: createOpts2=%+v\n", createOpts)
+	log.Debug(fmt.Sprintf("DEBUG: createOpts2=%+v", createOpts))
 	server, err := servers.Create(client, createOpts).Extract()
 
 	if err != nil {
 		return errors.New(err.Error())
 	}
 
-	fmt.Printf("Instance Created Successfully. ID ---> %s | Name ---> %s\n", server.ID, instanceName)
+	log.Info(fmt.Sprintf("Instance Created Successfully. ID ---> %s | Name ---> %s\n", server.ID, instanceName))
 
 	if ctx.Config().CloudConfig.DomainName != "" {
 		pollCount := 60
@@ -188,7 +190,7 @@ func (o *OpenStack) addBootFromVolumeParams(
 	imageID string,
 	rootDiskSizeGb int,
 ) *bootfromvolume.CreateOptsExt {
-	fmt.Printf("DEBUG: createOpts3=%+v\n", createOpts)
+	log.Debug(fmt.Sprintf("DEBUG: createOpts3=%+v\n", createOpts))
         
 	blockDevice := bootfromvolume.BlockDevice{
 		BootIndex:           0,
@@ -197,7 +199,7 @@ func (o *OpenStack) addBootFromVolumeParams(
 		SourceType:          bootfromvolume.SourceType("image"),
 		UUID:                imageID,
 	}
-	fmt.Printf("DEBUG: blockDevice=%+v\n", blockDevice)
+	log.Debug(fmt.Sprintf("DEBUG: blockDevice=%+v\n", blockDevice))
 	if rootDiskSizeGb > 0 {
 		blockDevice.VolumeSize = rootDiskSizeGb
 	}
@@ -210,6 +212,7 @@ func (o *OpenStack) addBootFromVolumeParams(
 
 // GetInstanceByName returns instance with given name
 func (o *OpenStack) GetInstanceByName(ctx *lepton.Context, name string) (*lepton.CloudInstance, error) {
+        log.Debug("Openstack GetInstanceByName ...")
 	opts := servers.ListOpts{
 		Name: name,
 	}
@@ -228,6 +231,7 @@ func (o *OpenStack) GetInstanceByName(ctx *lepton.Context, name string) (*lepton
 
 // GetInstances return all instances on OpenStack
 func (o *OpenStack) GetInstances(ctx *lepton.Context) ([]lepton.CloudInstance, error) {
+        log.Debug("Openstack GetInstances ...")
 	return getOpenStackInstances(o.provider, servers.ListOpts{})
 }
 
@@ -270,6 +274,7 @@ func (o *OpenStack) ListInstances(ctx *lepton.Context) error {
 
 // DeleteInstance deletes instance from OpenStack
 func (o *OpenStack) DeleteInstance(ctx *lepton.Context, instancename string) error {
+        log.Debug("Openstack DeleteInstance ...")
 
 	instances, err := o.GetInstances(ctx)
 
@@ -287,10 +292,11 @@ func (o *OpenStack) DeleteInstance(ctx *lepton.Context, instancename string) err
 
 	for _, instance := range instances {
 		if instance.Name == instancename {
+			log.Debug("Instance Name match found.")
 			result := servers.Delete(client, instance.ID).ExtractErr()
 
 			if result == nil {
-				fmt.Printf("Deleted instance with ID %s and name %s\n", instance.ID, instancename)
+				log.Info("Deleted instance with ID %s and name %s\n", instance.ID, instancename)
 			} else {
 				return errors.New(result.Error())
 			}
