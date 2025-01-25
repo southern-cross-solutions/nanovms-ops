@@ -123,10 +123,10 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 	fixedIP := targetConfig["FixedUUID"]
 	log.Info(fmt.Sprintf("Deploying FixedIP: %s", fixedIP))
 	if networkUUID != "" {
-	  log.Debug(fmt.Sprintf("DEBUG NetworkUUID is sets"))
-	  networks = []servers.Network{{UUID: networkUUID, FixedIP: fixedIP}}
+		log.Debug(fmt.Sprintf("DEBUG NetworkUUID is sets"))
+		networks = []servers.Network{{UUID: networkUUID, FixedIP: fixedIP}}
 	} else {
-	  networks = "auto"
+		networks = "auto"
 	}
 	log.Debug(fmt.Sprintf("DEBUG networks=%+v", networks))
 
@@ -150,7 +150,24 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 		volumeSize = ctx.Config().RunConfig.VolumeSizeInGb
 	}
 
-	createOpts = o.addBootFromVolumeParams(createOpts, imageID, volumeSize)
+	var destinationType bootfromvolume.DestinationType
+	destinationTypeRequested := targetConfig["DestinationType"]
+	log.Debug(fmt.Sprintf("destinationTypeRequested: %s", destinationTypeRequested))
+	if destinationTypeRequested != "" {
+		lowerDestinationTypeRequested := strings.ToLower(destinationTypeRequested)
+		if lowerDestinationTypeRequested == "volume" {
+			destinationType = bootfromvolume.DestinationVolume
+		} else if lowerDestinationTypeRequested == "local" {
+			destinationType = bootfromvolume.DestinationLocal
+		} else {
+			return errors.New("Unsupported DestinationType specified in TargetConfig")
+		}
+	} else {
+		destinationType = bootfromvolume.DestinationVolume
+	}
+	log.Info(fmt.Sprintf("Deploying to DestinationType: %s", destinationType))
+
+	createOpts = o.addBootFromVolumeParams(createOpts, imageID, volumeSize, destinationType)
 	log.Debug(fmt.Sprintf("DEBUG: createOpts2=%+v", createOpts))
 	server, err := servers.Create(client, createOpts).Extract()
 
@@ -189,13 +206,14 @@ func (o *OpenStack) addBootFromVolumeParams(
 	createOpts servers.CreateOptsBuilder,
 	imageID string,
 	rootDiskSizeGb int,
+	destinationType bootfromvolume.DestinationType,
 ) *bootfromvolume.CreateOptsExt {
 	log.Debug(fmt.Sprintf("DEBUG: createOpts3=%+v\n", createOpts))
         
 	blockDevice := bootfromvolume.BlockDevice{
 		BootIndex:           0,
 		DeleteOnTermination: true,
-		DestinationType:     "volume",
+		DestinationType:     destinationType,
 		SourceType:          bootfromvolume.SourceType("image"),
 		UUID:                imageID,
 	}
@@ -296,7 +314,7 @@ func (o *OpenStack) DeleteInstance(ctx *lepton.Context, instancename string) err
 			result := servers.Delete(client, instance.ID).ExtractErr()
 
 			if result == nil {
-				log.Info("Deleted instance with ID %s and name %s\n", instance.ID, instancename)
+				log.Info(fmt.Sprintf("Deleted instance with ID %s and name %s\n", instance.ID, instancename))
 			} else {
 				return errors.New(result.Error())
 			}
