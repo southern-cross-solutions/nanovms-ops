@@ -120,7 +120,7 @@ func (o *OpenStack) CreateInstance(ctx *lepton.Context) error {
 	log.Debug(fmt.Sprintf("DEBUG TargetConfig: %s", targetConfig))
 	networkUUID := targetConfig["NetworkUUID"]
 	log.Info(fmt.Sprintf("Deploying NetworkUUID: %s", networkUUID))
-	fixedIP := targetConfig["FixedUUID"]
+	fixedIP := targetConfig["FixedIP"]
 	log.Info(fmt.Sprintf("Deploying FixedIP: %s", fixedIP))
 	if networkUUID != "" {
 		log.Debug(fmt.Sprintf("DEBUG NetworkUUID is sets"))

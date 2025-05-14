@@ -20,3 +20,4 @@ cmd/nodejs*
 config*.json
 load*
 coverage.out
+go-mod/

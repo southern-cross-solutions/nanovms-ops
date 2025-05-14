@@ -592,6 +592,8 @@ func fromRunCommandHandler(cmd *cobra.Command, args []string) {
 }
 
 func pushCommandHandler(cmd *cobra.Command, args []string) {
+        log.Debug(fmt.Sprintf("DEBUG pushCommandHandler (...)"))
+
 	flags := cmd.Flags()
 
 	c := api.NewConfig()
@@ -965,6 +967,7 @@ func loadCommandHandler(cmd *cobra.Command, args []string) {
 	}
 
 	packageFolder := filepath.Base(pkgFlags.PackagePath())
+	log.Debug(fmt.Sprintf("DEBUG loadCommandHandler: packageFolder: %s", packageFolder))
 	executableName := c.Program
 	if strings.Contains(executableName, packageFolder) {
 		executableName = filepath.Base(executableName)

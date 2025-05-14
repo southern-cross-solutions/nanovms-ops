@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/nanovms/ops/lepton"
+	"github.com/nanovms/ops/log"
 	api "github.com/nanovms/ops/lepton"
 	"github.com/nanovms/ops/types"
 
@@ -159,11 +160,14 @@ func getLatest(pkg string) string {
 
 // MergeToConfig merge package configuration to ops configuration
 func (flags *PkgCommandFlags) MergeToConfig(c *types.Config) (err error) {
+        log.Debug(fmt.Sprintf("DEBUG MergeToConfig(...)"))
+
 	if flags.Package == "" {
 		return
 	}
 
 	packagePath := flags.PackagePath()
+	log.Debug(fmt.Sprintf("DEBUG MergeToConfig: packagePath=%s", packagePath))
 	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
 		if flags.LocalPackage {
 			return fmt.Errorf("no local package with the name %s found", flags.Package)
